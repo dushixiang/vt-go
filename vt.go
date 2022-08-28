@@ -214,7 +214,6 @@ func (vt *VirtualTerminal) Reset() {
 	vt.resetCursor()
 	vt.buffer.Reset()
 	vt.rowList = nil
-	vt.SetPs1("")
 }
 
 func (vt *VirtualTerminal) Result() []string {
