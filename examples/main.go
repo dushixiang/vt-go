@@ -828,8 +828,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	v.Parse()
 	lines := v.Result()
 	for _, line := range lines {
 		println(line)
 	}
+	v.Reset()
 }

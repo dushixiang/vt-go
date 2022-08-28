@@ -229,8 +229,8 @@ func (vt *VirtualTerminal) Result() []string {
 func (vt *VirtualTerminal) ResultWithoutPs1() []string {
 	result := vt.Result()
 	for i := range result {
-		if strings.HasPrefix(result[i], vt.GetPs1()) {
-			result[i] = strings.Replace(result[i], vt.ps1, "", 1)
+		if vt.GetPs1() != "" && strings.HasPrefix(result[i], vt.GetPs1()) {
+			result[i] = strings.Replace(result[i], vt.GetPs1(), "", 1)
 		}
 	}
 	return result
