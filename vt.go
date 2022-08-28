@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"log"
 	"strconv"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -30,7 +29,6 @@ type VirtualTerminal struct {
 	buffer  bytes.Buffer
 	rowList []*Row // 行数据
 	rows    int    // 行数量
-	ps1     string // PS1
 
 	inputHandlers map[byte]inputHandler
 	insertMode    bool // 暂时没啥用
@@ -223,28 +221,4 @@ func (vt *VirtualTerminal) Result() []string {
 		result[i] = line
 	}
 	return result
-}
-
-func (vt *VirtualTerminal) ResultWithoutPs1() []string {
-	result := vt.Result()
-	var resultNoPs1 []string
-	for _, r := range result {
-		if vt.ps1 != "" {
-			r = strings.ReplaceAll(r, vt.ps1, "")
-		}
-		resultNoPs1 = append(resultNoPs1, r)
-	}
-	return resultNoPs1
-}
-
-func (vt *VirtualTerminal) GetPs1() string {
-	result := vt.Result()
-	if len(result) > 0 {
-		vt.ps1 = result[len(result)-1]
-	}
-	return vt.ps1
-}
-
-func (vt *VirtualTerminal) SetPs1(ps1 string) {
-	vt.ps1 = ps1
 }
