@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/dushixiang/vt"
+	"github.com/dushixiang/vt-go"
 )
 
 var data = `{"version": 2, "width": 81, "height": 20}
