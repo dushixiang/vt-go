@@ -229,17 +229,14 @@ func (vt *VirtualTerminal) Result() []string {
 func (vt *VirtualTerminal) ResultWithoutPs1() []string {
 	result := vt.Result()
 	for i := range result {
-		if vt.GetPs1() != "" && strings.HasPrefix(result[i], vt.GetPs1()) {
-			result[i] = strings.Replace(result[i], vt.GetPs1(), "", 1)
+		if vt.ps1 != "" && strings.HasPrefix(result[i], vt.ps1) {
+			result[i] = strings.Replace(result[i], vt.ps1, "", 1)
 		}
 	}
 	return result
 }
 
 func (vt *VirtualTerminal) GetPs1() string {
-	if vt.ps1 != "" {
-		return vt.ps1
-	}
 	result := vt.Result()
 	if len(result) > 0 {
 		vt.ps1 = result[len(result)-1]
