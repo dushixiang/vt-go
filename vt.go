@@ -2,6 +2,7 @@ package vt
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"strconv"
 	"unicode/utf8"
@@ -108,10 +109,10 @@ func (vt *VirtualTerminal) handleCSISequence(p []byte) []byte {
 	if ok {
 		params := []rune(string(p[:index]))
 		if err := handler(params); err != nil {
-			vt.log("handle csi sequence err %v", err.Error())
+			vt.log(fmt.Sprintf("handle csi sequence err %v", err.Error()))
 		}
 	} else {
-		vt.log("no match input handler for %q %v", b, b)
+		vt.log(fmt.Sprintf("no match input handler for %q %v", b, b))
 	}
 	return p[index+1:]
 }
@@ -134,7 +135,6 @@ func (vt *VirtualTerminal) handleOSCSequence(p []byte) []byte {
 func (vt *VirtualTerminal) handleC0Sequence(code rune) {
 	switch code {
 	case BEL: // \a 发出可听见的噪音。
-
 	case BS: // \b 将光标向左移动一个字符
 		vt.moveBackward(1)
 	case HT: // \t 定位到下一个制表位。
@@ -150,9 +150,9 @@ func (vt *VirtualTerminal) handleC0Sequence(code rune) {
 	}
 }
 
-func (vt *VirtualTerminal) log(format string, v ...interface{}) {
+func (vt *VirtualTerminal) log(v ...any) {
 	if vt.logger != nil {
-		log.Printf(format, v)
+		log.Println(v)
 	}
 }
 

@@ -26,10 +26,8 @@ func (vt *VirtualTerminal) initCsiHandler() {
 }
 
 func (vt *VirtualTerminal) cursorChange(params []rune, action func(ps int)) {
-	if len(params) > 0 {
-		ps := vt.getNumberOrDefault(params, 0, 1)
-		action(ps)
-	}
+	ps := vt.getNumberOrDefault(params, 0, 1)
+	action(ps)
 }
 
 // insert Ps (Blank) Character(s) (default = 1) (ICH).
