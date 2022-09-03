@@ -1,35 +1,35 @@
 package vt
 
-func (vt *VirtualTerminal) resetCursor() {
+func (vt *virtualTerminal) resetCursor() {
 	vt.getCurrentRow().setIndex(0)
 	vt.rows = 0
 }
 
-func (vt *VirtualTerminal) moveTo(col, row int) {
+func (vt *virtualTerminal) moveTo(col, row int) {
 	vt.setCol(col)
 	vt.setRow(row)
 }
 
-func (vt *VirtualTerminal) setRow(row int) {
+func (vt *virtualTerminal) setRow(row int) {
 	vt.rows = row
 }
 
-func (vt *VirtualTerminal) setCol(col int) {
+func (vt *virtualTerminal) setCol(col int) {
 	vt.getCurrentRow().setIndex(col)
 }
 
-func (vt *VirtualTerminal) moveUp(ps int) {
+func (vt *virtualTerminal) moveUp(ps int) {
 	vt.rows -= ps
 	if vt.rows < 0 {
 		vt.rows = 0
 	}
 }
 
-func (vt *VirtualTerminal) moveDown(ps int) {
+func (vt *virtualTerminal) moveDown(ps int) {
 	vt.rows += ps
 }
 
-func (vt *VirtualTerminal) moveBackward(ps int) {
+func (vt *virtualTerminal) moveBackward(ps int) {
 	index := vt.getCurrentRow().index
 	index -= ps
 	if index < 0 {
@@ -38,12 +38,12 @@ func (vt *VirtualTerminal) moveBackward(ps int) {
 	vt.setCol(index)
 }
 
-func (vt *VirtualTerminal) moveForward(ps int) {
+func (vt *virtualTerminal) moveForward(ps int) {
 	index := vt.getCurrentRow().index + ps
 	vt.setCol(index)
 }
 
-func (vt *VirtualTerminal) move(col int, row int) {
+func (vt *virtualTerminal) move(col int, row int) {
 	newCol := vt.getCurrentRow().index + col
 	newRow := vt.rows + row
 	vt.moveTo(newCol, newRow)

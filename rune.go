@@ -30,13 +30,13 @@ func remove(data []rune, index, num int) (result []rune) {
 00000100	4	04	EOT (End Of Transmission)	传输结束
 00000101	5	05	ENQ (Enquiry)	请求
 00000110	6	06	ACK (Acknowledge)	回应/响应/收到通知
-00000111	7	07	BEL (Bell)	响铃
-00001000	8	08	BS (Backspace)	退格
-00001001	9	09	HT (Horizontal Tab)	水平制表符
-00001010	10	0A	LF/NL(Line Feed/New Line)	换行键
-00001011	11	0B	VT (Vertical Tab)	垂直制表符
+00000111	7	07	_BEL (Bell)	响铃
+00001000	8	08	_BS (Backspace)	退格
+00001001	9	09	_HT (Horizontal Tab)	水平制表符
+00001010	10	0A	_LF/NL(Line Feed/New Line)	换行键
+00001011	11	0B	_VT (Vertical Tab)	垂直制表符
 00001100	12	0C	FF/NP (Form Feed/New Page)	换页键
-00001101	13	0D	CR (Carriage Return)	回车键
+00001101	13	0D	_CR (Carriage Return)	回车键
 00001110	14	0E	SO (Shift Out)	不用切换
 00001111	15	0F	SI (Shift In)	启用切换
 00010000	16	10	DLE (Data Link Escape)	数据链路转义
@@ -50,12 +50,12 @@ func remove(data []rune, index, num int) (result []rune) {
 00011000	24	18	CAN (Cancel)	取消
 00011001	25	19	EM (End of Medium)	已到介质末端/介质存储已满/介质中断
 00011010	26	1A	SUB (Substitute)	替补/替换
-00011011	27	1B	ESC (Escape)	逃离/取消
+00011011	27	1B	_ESC (Escape)	逃离/取消
 00011100	28	1C	FS (File Separator)	文件分割符
 00011101	29	1D	GS (Group Separator)	组分隔符/分组符
 00011110	30	1E	RS (Record Separator)	记录分离符
 00011111	31	1F	US (Unit Separator)	单元分隔符
-01111111	127	7F	DEL (Delete)	删除
+01111111	127	7F	_DEL (Delete)	删除
 */
 func isC0Sequence(code rune) bool {
 	return (code >= 0 && code <= 31) || code == 127
@@ -68,11 +68,11 @@ func isC0Sequence(code rune) bool {
 中间字节	0x20–0x2F	空格、!"#$%&'()*+,-./
 最终字节	0x40–0x7E	@A–Z[\]^_`a–z{|}~
 
-所有常见的序列都只是把参数用作一系列分号分隔的数字，如1;2;3。缺少的数字视为0（如1;;3相当于中间的数字是0，ESC[m这样没有参数的情况相当于参数为0）。某些序列（如CUU）把0视为1，以使缺少参数的情况下有意义:F.4.2。
+所有常见的序列都只是把参数用作一系列分号分隔的数字，如1;2;3。缺少的数字视为0（如1;;3相当于中间的数字是0，_ESC[m这样没有参数的情况相当于参数为0）。某些序列（如CUU）把0视为1，以使缺少参数的情况下有意义:F.4.2。
 
 一部分字符定义是“私有”的，以便终端制造商可以插入他们自己的序列而不与标准相冲突。包括参数字节<=>?的使用，或者最终字节0x70–0x7F（p–z{|}~）例如VT320序列CSI?25h和CSI?25l的作用是打开和关闭光标的显示。
 
-当CSI序列含有超出0x20–0x7E范围的字符时，其行为是未定义的。这些非法字符包括C0控制字符（范围0–0x1F）、DEL（0x7F），以及高位字节。
+当CSI序列含有超出0x20–0x7E范围的字符时，其行为是未定义的。这些非法字符包括C0控制字符（范围0–0x1F）、_DEL（0x7F），以及高位字节。
 */
 func isCSISequence(code rune) bool {
 	return code >= 64 && code <= 126

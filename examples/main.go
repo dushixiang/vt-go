@@ -821,7 +821,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	v := vt.NewWithOpts(vt.NewVirtualTerminalOpts{
+	v := vt.NewWithOpts(vt.Opts{
 		Logger: log.Default(),
 	})
 	_, err = v.Advance(content)
