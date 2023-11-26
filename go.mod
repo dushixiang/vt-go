@@ -1,3 +1,3 @@
-module github.com/dushixiang/vt-go
+module github.com/go-orz/vt
 
 go 1.18

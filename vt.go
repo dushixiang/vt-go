@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -28,19 +29,22 @@ type inputHandler func(params []rune) error
 
 type VirtualTerminal interface {
 	Advance(p []byte) (int, error)
-	Parse()
+	Parse() []string
 	Reset()
-	Result() []string
+	RealTime() VirtualTerminal
+	Bytes() []byte
 }
 
 type virtualTerminal struct {
-	buffer  bytes.Buffer
-	rowList []*row // 行数据
-	rows    int    // 行数量
+	buffer     bytes.Buffer
+	bufferLock sync.Mutex
+	rowList    []*row // 行数据
+	rows       int    // 行数量
 
 	inputHandlers map[byte]inputHandler
 	insertMode    bool // 暂时没啥用
 	logger        *log.Logger
+	realTime      bool
 }
 
 type Opts struct {
@@ -52,13 +56,18 @@ func New() VirtualTerminal {
 }
 
 func NewWithOpts(opts Opts) VirtualTerminal {
-	vt := &virtualTerminal{
+	vt := virtualTerminal{
 		inputHandlers: make(map[byte]inputHandler),
 		rowList:       make([]*row, 0),
 		rows:          0,
 		logger:        opts.Logger,
 	}
 	vt.initCsiHandler()
+	return &vt
+}
+
+func (vt *virtualTerminal) RealTime() VirtualTerminal {
+	vt.realTime = true
 	return vt
 }
 
@@ -193,13 +202,14 @@ func (vt *virtualTerminal) appendCharacter(code rune) {
 }
 
 func (vt *virtualTerminal) Advance(p []byte) (int, error) {
+	vt.bufferLock.Lock()
+	defer vt.bufferLock.Unlock()
 	return vt.buffer.Write(p)
 }
 
-func (vt *virtualTerminal) Parse() {
+func (vt *virtualTerminal) Parse() []string {
+	inputs := vt.Bytes()
 	vt.moveDown(1)
-	inputs := vt.buffer.Bytes()
-	vt.buffer.Reset()
 	for len(inputs) > 0 {
 		code, size := utf8.DecodeRune(inputs)
 		inputs = inputs[size:]
@@ -213,19 +223,24 @@ func (vt *virtualTerminal) Parse() {
 			vt.appendCharacter(code)
 		}
 	}
-}
-
-func (vt *virtualTerminal) Reset() {
-	vt.resetCursor()
-	vt.buffer.Reset()
-	vt.rowList = nil
-}
-
-func (vt *virtualTerminal) Result() []string {
 	result := make([]string, len(vt.rowList))
 	for i := range vt.rowList {
 		line := vt.rowList[i].String()
 		result[i] = line
 	}
 	return result
+}
+
+func (vt *virtualTerminal) Reset() {
+	vt.bufferLock.Lock()
+	defer vt.bufferLock.Unlock()
+	_ = vt.eraseAll()
+	vt.buffer.Reset()
+}
+
+func (vt *virtualTerminal) Bytes() []byte {
+	vt.bufferLock.Lock()
+	defer vt.bufferLock.Unlock()
+	b := vt.buffer.Bytes()
+	return b
 }

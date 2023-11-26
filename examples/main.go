@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/dushixiang/vt-go"
+	"github.com/go-orz/vt"
 )
 
 var data = `{"version": 2, "width": 81, "height": 20}
@@ -828,10 +828,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	v.Parse()
-	lines := v.Result()
+	lines := v.Parse()
 	for _, line := range lines {
 		println(line)
 	}
-	v.Reset()
 }
