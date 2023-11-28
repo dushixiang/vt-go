@@ -821,9 +821,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	v := vt.NewWithOpts(vt.Opts{
-		Logger: log.Default(),
-	})
+	v := vt.New(true)
 	_, err = v.Advance(content)
 	if err != nil {
 		log.Fatal(err)

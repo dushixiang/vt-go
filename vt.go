@@ -2,10 +2,12 @@ package vt
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"unicode/utf8"
 )
 
@@ -31,44 +33,42 @@ type VirtualTerminal interface {
 	Advance(p []byte) (int, error)
 	Parse() []string
 	Reset()
-	RealTime() VirtualTerminal
+	Empty() bool
 	Bytes() []byte
-}
-
-type virtualTerminal struct {
-	buffer     bytes.Buffer
-	bufferLock sync.Mutex
-	rowList    []*row // 行数据
-	rows       int    // 行数量
-
-	inputHandlers map[byte]inputHandler
-	insertMode    bool // 暂时没啥用
-	logger        *log.Logger
-	realTime      bool
 }
 
 type Opts struct {
 	Logger *log.Logger
 }
 
-func New() VirtualTerminal {
-	return NewWithOpts(Opts{})
-}
-
-func NewWithOpts(opts Opts) VirtualTerminal {
+func New(realtime bool) VirtualTerminal {
 	vt := virtualTerminal{
+		realtime:      realtime,
 		inputHandlers: make(map[byte]inputHandler),
 		rowList:       make([]*row, 0),
 		rows:          0,
-		logger:        opts.Logger,
+		logger:        nil,
 	}
 	vt.initCsiHandler()
 	return &vt
 }
 
-func (vt *virtualTerminal) RealTime() VirtualTerminal {
-	vt.realTime = true
-	return vt
+type virtualTerminal struct {
+	realtime   bool
+	empty      atomic.Bool
+	buffer     bytes.Buffer
+	bufferLock sync.Mutex
+
+	rowList []*row // 行数据
+	rows    int    // 行数量
+
+	inputHandlers map[byte]inputHandler
+	insertMode    bool // 暂时没啥用
+	logger        *log.Logger
+}
+
+func (vt *virtualTerminal) Empty() bool {
+	return vt.empty.Load()
 }
 
 func (vt *virtualTerminal) addCsiHandler(b byte, handler inputHandler) {
@@ -120,15 +120,17 @@ func (vt *virtualTerminal) handleCSISequence(p []byte) []byte {
 	index := bytes.IndexFunc(p, func(r rune) bool {
 		return isCSISequence(r)
 	})
-	b := p[index]
-	handler, ok := vt.inputHandlers[b]
-	if ok {
-		params := []rune(string(p[:index]))
-		if err := handler(params); err != nil {
-			vt.log(fmt.Sprintf("handle csi sequence err %v", err.Error()))
+	if index > -1 {
+		b := p[index]
+		handler, ok := vt.inputHandlers[b]
+		if ok {
+			params := []rune(string(p[:index]))
+			if err := handler(params); err != nil {
+				vt.log(fmt.Sprintf("handle csi sequence err %v", err.Error()))
+			}
+		} else {
+			vt.log(fmt.Sprintf("no match input handler for %q %v", b, b))
 		}
-	} else {
-		vt.log(fmt.Sprintf("no match input handler for %q %v", b, b))
 	}
 	return p[index+1:]
 }
@@ -202,14 +204,20 @@ func (vt *virtualTerminal) appendCharacter(code rune) {
 }
 
 func (vt *virtualTerminal) Advance(p []byte) (int, error) {
-	vt.bufferLock.Lock()
-	defer vt.bufferLock.Unlock()
-	return vt.buffer.Write(p)
+	if vt.realtime {
+		inputs := make([]byte, len(p))
+		copy(inputs, p)
+		vt.advance(inputs)
+		return len(p), nil
+	} else {
+		vt.bufferLock.Lock()
+		defer vt.bufferLock.Unlock()
+		vt.empty.Store(false)
+		return vt.buffer.Write(p)
+	}
 }
 
-func (vt *virtualTerminal) Parse() []string {
-	inputs := vt.Bytes()
-	vt.moveDown(1)
+func (vt *virtualTerminal) advance(inputs []byte) {
 	for len(inputs) > 0 {
 		code, size := utf8.DecodeRune(inputs)
 		inputs = inputs[size:]
@@ -223,10 +231,22 @@ func (vt *virtualTerminal) Parse() []string {
 			vt.appendCharacter(code)
 		}
 	}
-	result := make([]string, len(vt.rowList))
+}
+
+func (vt *virtualTerminal) Parse() []string {
+	if !vt.realtime {
+		inputs := vt.Bytes()
+		toString := base64.StdEncoding.EncodeToString(inputs)
+		fmt.Printf("++++++++++++++++++++++++++++++++")
+		fmt.Printf("%v\n", toString)
+		fmt.Printf("%v\n", len(inputs))
+		fmt.Printf("++++++++++++++++++++++++++++++++")
+		vt.advance(inputs)
+	}
+	var result []string
 	for i := range vt.rowList {
 		line := vt.rowList[i].String()
-		result[i] = line
+		result = append(result, line)
 	}
 	return result
 }
@@ -236,11 +256,14 @@ func (vt *virtualTerminal) Reset() {
 	defer vt.bufferLock.Unlock()
 	_ = vt.eraseAll()
 	vt.buffer.Reset()
+	vt.empty.Store(true)
 }
 
 func (vt *virtualTerminal) Bytes() []byte {
 	vt.bufferLock.Lock()
 	defer vt.bufferLock.Unlock()
 	b := vt.buffer.Bytes()
-	return b
+	nb := make([]byte, len(b))
+	copy(nb, b)
+	return nb
 }
