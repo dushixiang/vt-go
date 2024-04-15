@@ -2,12 +2,10 @@ package vt
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"strconv"
-	"sync"
-	"sync/atomic"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -22,6 +20,8 @@ const (
 	_ESC rune = 0x1b // Escape (Caret = ^[, C = \e)
 	_DEL rune = 0x7f // Delete (Caret = ^?)
 
+	_SEMICOLON rune = 0x3b // ;
+
 	_ST rune = 0x9c // String Terminator
 
 	space rune = 0x20 // 空格
@@ -30,22 +30,20 @@ const (
 type inputHandler func(params []rune) error
 
 type VirtualTerminal interface {
-	Advance(p []byte) (int, error)
-	Parse() []string
+	Advance(p []byte)
+	Output() []string
 	Reset()
-	Empty() bool
-	Bytes() []byte
+	CurrentDir() string
 }
 
 type Opts struct {
 	Logger *log.Logger
 }
 
-func New(realtime bool) VirtualTerminal {
+func New() VirtualTerminal {
 	vt := virtualTerminal{
-		realtime:      realtime,
 		inputHandlers: make(map[byte]inputHandler),
-		rowList:       make([]*row, 0),
+		rowList:       make([]*Row, 0),
 		rows:          0,
 		logger:        nil,
 	}
@@ -54,28 +52,21 @@ func New(realtime bool) VirtualTerminal {
 }
 
 type virtualTerminal struct {
-	realtime   bool
-	empty      atomic.Bool
-	buffer     bytes.Buffer
-	bufferLock sync.Mutex
-
-	rowList []*row // 行数据
+	rowList []*Row // 行数据
 	rows    int    // 行数量
 
 	inputHandlers map[byte]inputHandler
 	insertMode    bool // 暂时没啥用
 	logger        *log.Logger
-}
 
-func (vt *virtualTerminal) Empty() bool {
-	return vt.empty.Load()
+	currentDir string
 }
 
 func (vt *virtualTerminal) addCsiHandler(b byte, handler inputHandler) {
 	vt.inputHandlers[b] = handler
 }
 
-func (vt *virtualTerminal) getCurrentRow() *row {
+func (vt *virtualTerminal) getCurrentRow() *Row {
 	if len(vt.rowList) == 0 {
 		vt.rowList = append(vt.rowList, vt.newRow())
 		vt.rows = 1
@@ -96,8 +87,8 @@ func (vt *virtualTerminal) getCurrentRow() *row {
 	return vt.rowList[index]
 }
 
-func (vt *virtualTerminal) newRow() *row {
-	return &row{
+func (vt *virtualTerminal) newRow() *Row {
+	return &Row{
 		data:  make([]rune, 0),
 		index: 0,
 	}
@@ -140,6 +131,18 @@ func (vt *virtualTerminal) handleCSISequence(p []byte) []byte {
 // 在xterm中，它们也可能被BEL终止[13]。
 // 例如，在xterm中，窗口标题可以这样设置：OSC 0;this is the window title _BEL。
 func (vt *virtualTerminal) handleOSCSequence(p []byte) []byte {
+	idx := bytes.IndexRune(p, _SEMICOLON)
+	if idx >= 0 {
+		osc, _ := strconv.Atoi(string(p[:idx]))
+		switch osc {
+		case 1337:
+			content := string(p[idx+1:])
+			parts := strings.Split(content, "=")
+			if len(parts) == 2 {
+				vt.currentDir = parts[1]
+			}
+		}
+	}
 	if index := bytes.IndexRune(p, _ST); index >= 0 {
 		return p[index+1:]
 	}
@@ -170,7 +173,7 @@ func (vt *virtualTerminal) handleC0Sequence(code rune) {
 
 func (vt *virtualTerminal) log(v ...interface{}) {
 	if vt.logger != nil {
-		log.Println(v)
+		log.Println(v...)
 	}
 }
 
@@ -203,18 +206,8 @@ func (vt *virtualTerminal) appendCharacter(code rune) {
 	row.append(code)
 }
 
-func (vt *virtualTerminal) Advance(p []byte) (int, error) {
-	if vt.realtime {
-		inputs := make([]byte, len(p))
-		copy(inputs, p)
-		vt.advance(inputs)
-		return len(p), nil
-	} else {
-		vt.bufferLock.Lock()
-		defer vt.bufferLock.Unlock()
-		vt.empty.Store(false)
-		return vt.buffer.Write(p)
-	}
+func (vt *virtualTerminal) Advance(p []byte) {
+	vt.advance(p)
 }
 
 func (vt *virtualTerminal) advance(inputs []byte) {
@@ -233,16 +226,7 @@ func (vt *virtualTerminal) advance(inputs []byte) {
 	}
 }
 
-func (vt *virtualTerminal) Parse() []string {
-	if !vt.realtime {
-		inputs := vt.Bytes()
-		toString := base64.StdEncoding.EncodeToString(inputs)
-		fmt.Printf("++++++++++++++++++++++++++++++++")
-		fmt.Printf("%v\n", toString)
-		fmt.Printf("%v\n", len(inputs))
-		fmt.Printf("++++++++++++++++++++++++++++++++")
-		vt.advance(inputs)
-	}
+func (vt *virtualTerminal) Output() []string {
 	var result []string
 	for i := range vt.rowList {
 		line := vt.rowList[i].String()
@@ -252,18 +236,9 @@ func (vt *virtualTerminal) Parse() []string {
 }
 
 func (vt *virtualTerminal) Reset() {
-	vt.bufferLock.Lock()
-	defer vt.bufferLock.Unlock()
 	_ = vt.eraseAll()
-	vt.buffer.Reset()
-	vt.empty.Store(true)
 }
 
-func (vt *virtualTerminal) Bytes() []byte {
-	vt.bufferLock.Lock()
-	defer vt.bufferLock.Unlock()
-	b := vt.buffer.Bytes()
-	nb := make([]byte, len(b))
-	copy(nb, b)
-	return nb
+func (vt *virtualTerminal) CurrentDir() string {
+	return vt.currentDir
 }

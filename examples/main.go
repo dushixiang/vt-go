@@ -821,11 +821,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	v := vt.New(true)
-	_, err = v.Advance(content)
-	if err != nil {
-		log.Fatal(err)
-	}
+	v := vt.New()
+	v.Advance(content)
 	lines := v.Parse()
 	for _, line := range lines {
 		println(line)
